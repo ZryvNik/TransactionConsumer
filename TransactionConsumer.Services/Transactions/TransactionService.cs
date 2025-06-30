@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TransactionConsumer.Data;
 using TransactionConsumer.Data.Dtos;
+using TransactionConsumer.Data.Exceptions;
 using TransactionConsumer.Data.Models;
 using TransactionConsumer.Data.Settings;
 using TransactionConsumer.Services.Common;
@@ -25,10 +26,6 @@ public class TransactionService : ITransactionService
 
     public async Task<CreateTransactionResponse> CreateTransactionAsync(CreateTransactionRequest request, CancellationToken cancellationToken)
     {
-        // Валидация
-        ValidateTransaction(request);
-
-        // Проверяем, существует ли уже транзакция с таким Id (идемпотентность)
         var existingTransaction = await _context.Transactions
             .FirstOrDefaultAsync(t => t.Id == request.Id, cancellationToken);
 
@@ -40,7 +37,8 @@ public class TransactionService : ITransactionService
             };
         }
 
-        // Используем транзакцию для обеспечения атомарности операций
+        ValidateTransaction(request);
+
         using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
         try
@@ -51,10 +49,9 @@ public class TransactionService : ITransactionService
 
             var count = await _context.Transactions.CountAsync(cancellationToken);
 
-            // Проверяем лимит на количество транзакций
             if (count >= _settings.MaxTransactions)
             {
-                throw new InvalidOperationException($"Превышен лимит транзакций. Максимальное количество: {_settings.MaxTransactions}");
+                throw new InvalidOperationException($"Transaction limit exceeded. Max: {_settings.MaxTransactions}");
             }
 
             var newTransaction = new Transaction
@@ -68,7 +65,6 @@ public class TransactionService : ITransactionService
             _context.Transactions.Add(newTransaction);
             await _context.SaveChangesAsync(cancellationToken);
 
-            // Фиксируем транзакцию
             await transaction.CommitAsync(cancellationToken);
 
             return new CreateTransactionResponse
@@ -78,7 +74,6 @@ public class TransactionService : ITransactionService
         }
         catch
         {
-            // Откатываем транзакцию в случае ошибки
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
@@ -91,7 +86,7 @@ public class TransactionService : ITransactionService
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
         if (transaction == null)
-            throw new InvalidOperationException($"Транзакция с Id {id} не найдена");
+            throw new TransactionNotFoundException($"Transaction with Id {id} not found");
 
         return new GetTransactionResponse
         {
@@ -105,12 +100,12 @@ public class TransactionService : ITransactionService
     {
         if (request.Amount <= 0)
         {
-            throw new ArgumentException("Сумма транзакции должна быть положительной");
+            throw new ArgumentException("The transaction amount must be positive");
         }
 
         if (request.TransactionDate > _dateTimeProvider.GetNowUtc())
         {
-            throw new ArgumentException("Дата транзакции не может быть в будущем");
+            throw new ArgumentException("The transaction date cannot be in the future");
         }
     }
 }

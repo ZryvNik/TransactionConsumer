@@ -1,6 +1,9 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using TransactionConsumer.Data.Dtos;
+using TransactionConsumer.Data.Exceptions;
+using TransactionConsumer.Data.Settings;
 
 namespace TransactionConsumer.Middleware;
 
@@ -8,11 +11,13 @@ public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
+    private readonly string _urlReadme;
 
-    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
+    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger, IOptions<SpecSettings> options)
     {
         _next = next;
         _logger = logger;
+        _urlReadme = options.Value.UrlReadme;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -23,27 +28,36 @@ public class ErrorHandlingMiddleware
         }
         catch (ArgumentException ex)
         {
-            await HandleExceptionAsync(context, ex, HttpStatusCode.BadRequest, "Ошибка валидации", cancellationToken: context.RequestAborted);
+            await HandleExceptionAsync(context, ex, HttpStatusCode.BadRequest, "Validation error", cancellationToken: context.RequestAborted);
+        }
+        catch(TransactionNotFoundException ex)
+        {
+            await HandleExceptionAsync(context, ex, HttpStatusCode.NotFound, "Business logic error", cancellationToken: context.RequestAborted);
         }
         catch (InvalidOperationException ex)
         {
-            await HandleExceptionAsync(context, ex, HttpStatusCode.BadRequest, "Ошибка бизнес-логики", cancellationToken: context.RequestAborted);
+            await HandleExceptionAsync(context, ex, HttpStatusCode.BadRequest, "Business logic error", cancellationToken: context.RequestAborted);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Внутренняя ошибка сервера");
-            await HandleExceptionAsync(context, ex, HttpStatusCode.InternalServerError, "Внутренняя ошибка сервера", "Произошла непредвиденная ошибка", cancellationToken: context.RequestAborted);
+            _logger.LogError(ex, "Internal server error");
+            await HandleExceptionAsync(context, ex, HttpStatusCode.InternalServerError, "Internal server error", "An unexpected error occurred", context.RequestAborted);
         }
     }
 
-    private static async Task HandleExceptionAsync(HttpContext context, Exception ex, HttpStatusCode statusCode, string title, string? detail = null, CancellationToken cancellationToken = default)
+    private async Task HandleExceptionAsync(HttpContext context, 
+        Exception ex, 
+        HttpStatusCode statusCode, 
+        string title, 
+        string? detail = null, 
+        CancellationToken cancellationToken = default)
     {
         context.Response.ContentType = "application/problem+json";
         context.Response.StatusCode = (int)statusCode;
 
         var problem = new ProblemDetails
         {
-            Type = "",
+            Type = _urlReadme,
             Title = title,
             Status = statusCode,
             Detail = detail ?? ex.Message,
@@ -53,4 +67,4 @@ public class ErrorHandlingMiddleware
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         await context.Response.WriteAsync(JsonSerializer.Serialize(problem, options), cancellationToken);
     }
-} 
+}

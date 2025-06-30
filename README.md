@@ -45,6 +45,60 @@ Web API для создания и получения транзакций со�
 
 Обработка ошибок реализована в соответствии с RFC 9457 (Problem Details for HTTP APIs).
 
+### Типы ошибок
+
+#### 1. Ошибка валидации (ArgumentException)
+- Причина: сумма отрицательная или дата в будущем
+- HTTP Status: 400
+- Response:
+```json
+{
+  "type": "<значение из appsettings.json>",
+  "title": "Validation error",
+  "status": 400,
+  "detail": "The transaction amount must be positive",
+  "instance": "/api/v1/Transaction"
+}
+```
+
+#### 2. Ошибка бизнес-логики (InvalidOperationException)
+- Причина: превышен лимит транзакций или транзакция не найдена
+- HTTP Status: 400 (лимит) или 400/404 (не найдена)
+- Response (лимит):
+```json
+{
+  "type": "<значение из appsettings.json>",
+  "title": "Business logic error",
+  "status": 400,
+  "detail": "Transaction limit exceeded. Max: 100",
+  "instance": "/api/v1/Transaction"
+}
+```
+- Response (не найдена):
+```json
+{
+  "type": "<значение из appsettings.json>",
+  "title": "Business logic error",
+  "status": 404,
+  "detail": "Transaction with Id {id} not found",
+  "instance": "/api/v1/Transaction"
+}
+```
+
+#### 3. Внутренняя ошибка сервера (Exception)
+- Причина: любая непредвиденная ошибка
+- HTTP Status: 500
+- Response:
+```json
+{
+  "type": "<значение из appsettings.json>",
+  "title": "Internal server error",
+  "status": 500,
+  "detail": "An unexpected error occurred",
+  "instance": "/api/v1/Transaction"
+}
+```
+
 ## Технологии
 
 - .NET 8.0

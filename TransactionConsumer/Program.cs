@@ -14,6 +14,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.Configure<TransactionSettings>(
     builder.Configuration.GetSection("TransactionSettings"));
 
+builder.Services.Configure<SpecSettings>(
+    builder.Configuration.GetSection("SpecSettings"));
+
 builder.Services.AddDbContext<TransactionDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -32,6 +35,8 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
+app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseMiddleware<ResponseLoggingMiddleware>();
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
 using (var scope = app.Services.CreateScope())
