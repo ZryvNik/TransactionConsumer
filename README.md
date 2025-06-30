@@ -74,6 +74,7 @@ Web API для создания и получения транзакций со�
   "instance": "/api/v1/Transaction"
 }
 ```
+- (TransactionNotFoundException)
 - Response (не найдена):
 ```json
 {
