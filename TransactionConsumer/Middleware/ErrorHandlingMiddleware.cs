@@ -1,7 +1,7 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using System.Net;
 using System.Text.Json;
-using Microsoft.Extensions.Options;
-using TransactionConsumer.Data.Dtos;
 using TransactionConsumer.Data.Exceptions;
 using TransactionConsumer.Data.Settings;
 
@@ -11,13 +11,11 @@ public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
-    private readonly string _urlReadme;
 
-    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger, IOptions<SpecSettings> options)
+    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
     {
         _next = next;
         _logger = logger;
-        _urlReadme = options.Value.UrlReadme;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -30,7 +28,7 @@ public class ErrorHandlingMiddleware
         {
             await HandleExceptionAsync(context, ex, HttpStatusCode.BadRequest, "Validation error", cancellationToken: context.RequestAborted);
         }
-        catch(TransactionNotFoundException ex)
+        catch (TransactionNotFoundException ex)
         {
             await HandleExceptionAsync(context, ex, HttpStatusCode.NotFound, "Business logic error", cancellationToken: context.RequestAborted);
         }
@@ -45,11 +43,11 @@ public class ErrorHandlingMiddleware
         }
     }
 
-    private async Task HandleExceptionAsync(HttpContext context, 
-        Exception ex, 
-        HttpStatusCode statusCode, 
-        string title, 
-        string? detail = null, 
+    private async Task HandleExceptionAsync(HttpContext context,
+        Exception ex,
+        HttpStatusCode statusCode,
+        string title,
+        string? detail = null,
         CancellationToken cancellationToken = default)
     {
         context.Response.ContentType = "application/problem+json";
@@ -57,9 +55,8 @@ public class ErrorHandlingMiddleware
 
         var problem = new ProblemDetails
         {
-            Type = _urlReadme,
             Title = title,
-            Status = statusCode,
+            Status = (int)statusCode,
             Detail = detail ?? ex.Message,
             Instance = context.Request.Path
         };
