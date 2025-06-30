@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: transaction-postgres
+    environment:
+      POSTGRES_DB: transactiondb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - transaction-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  transaction-consumer:
+    build:
+      context: .
+      dockerfile: TransactionConsumer/Dockerfile
+    container_name: transaction-consumer-api
+    ports:
+      - "5000:80"
+      - "5001:443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=transactiondb;Username=postgres;Password=postgres
+      - TransactionSettings__MaxTransactions=100
+    networks:
+      - transaction-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  transaction-network:
+    driver: bridge 
