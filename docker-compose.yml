@@ -27,7 +27,6 @@ services:
     container_name: transaction-consumer-api
     ports:
       - "5000:80"
-      - "5001:443"
     depends_on:
       postgres:
         condition: service_healthy
