@@ -26,6 +26,8 @@ public class TransactionService : ITransactionService
 
     public async Task<CreateTransactionResponse> CreateTransactionAsync(CreateTransactionRequest request, CancellationToken cancellationToken)
     {
+        ValidateTransaction(request);
+
         var existingTransaction = await _context.Transactions
             .FirstOrDefaultAsync(t => t.Id == request.Id, cancellationToken);
 
@@ -36,8 +38,6 @@ public class TransactionService : ITransactionService
                 InsertDateTime = existingTransaction.InsertDateTime
             };
         }
-
-        ValidateTransaction(request);
 
         using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
